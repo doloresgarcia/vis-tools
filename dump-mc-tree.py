@@ -52,8 +52,9 @@ def get_pdg_name(pdg):
     return name
 
 def get_mc_label(mc):
-    label = f"{get_pdg_name(mc.getPDG())}\n"
+    label = f"{get_pdg_name(mc.getPDG())} / id {mc.id().index}\n"
     label += f"Vtx: ({mc.getVertex()[0]:.1f},{mc.getVertex()[1]:.1f},{mc.getVertex()[2]:.1f}) mm\n"
+    label += f"End: ({mc.getEndpoint()[0]:.1f},{mc.getEndpoint()[1]:.1f},{mc.getEndpoint()[2]:.1f}) mm\n"
     label += f"Mom: ({mc.getMomentum()[0]:.1f},{mc.getMomentum()[1]:.1f},{mc.getMomentum()[2]:.1f}) GeV\n"
     label += f"E: {mc.getEnergy():.2f} GeV\n"
     label += f"Gen/Sim: {mc.getGeneratorStatus()}/{get_simulator_status_string(mc)}"
