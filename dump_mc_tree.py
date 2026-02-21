@@ -6,41 +6,7 @@ from particle.particle.particle import ParticleNotFound
 import sys
 import graphviz
 import math
-
-def get_simulator_status_string(mc):
-    if mc is None:
-        return (
-            "simulator status bits: [sbvtcls] "
-            " s: created in simulation"
-            " b: backscatter"
-            " v: vertex is not endpoint of parent"
-            " t: decayed in tracker"
-            " c: decayed in calorimeter"
-            " l: has left detector"
-            " s: stopped"
-            " o: overlay\n"
-        )
-
-    status = list("[    0   ]")
-
-    if mc.getSimulatorStatus() == 0:
-        return "".join(status)
-
-    flags = [
-        (1, mc.isCreatedInSimulation(), 's'),
-        (2, mc.isBackscatter(), 'b'),
-        (3, mc.vertexIsNotEndpointOfParent(), 'v'),
-        (4, mc.isDecayedInTracker(), 't'),
-        (5, mc.isDecayedInCalorimeter(), 'c'),
-        (6, mc.hasLeftDetector(), 'l'),
-        (7, mc.isStopped(), 's'),
-        (8, mc.isOverlay(), 'o'),
-    ]
-
-    for idx, condition, char in flags:
-        status[idx] = char if condition else ' '
-
-    return "".join(status)
+from dump_mc_table import get_sim_status
 
 
 def get_pdg_name(pdg):
@@ -57,7 +23,7 @@ def get_mc_label(mc):
     label += f"End: ({mc.getEndpoint()[0]:.1f},{mc.getEndpoint()[1]:.1f},{mc.getEndpoint()[2]:.1f}) mm\n"
     label += f"Mom: ({mc.getMomentum()[0]:.1f},{mc.getMomentum()[1]:.1f},{mc.getMomentum()[2]:.1f}) GeV\n"
     label += f"E: {mc.getEnergy():.2f} GeV\n"
-    label += f"Gen/Sim: {mc.getGeneratorStatus()}/{get_simulator_status_string(mc)}"
+    label += f"Gen/Sim: {mc.getGeneratorStatus()}/{get_sim_status(mc)}"
     return label
 
 def draw_mc_tree(event, idx):
@@ -78,7 +44,7 @@ def draw_mc_tree(event, idx):
         for daughter in mc.getDaughters():
             dot.edge(str(idx), str(mc2idx[daughter]))
 
-    dot.render(directory='doctest-output')
+    dot.render(directory='output')
 
 
 if __name__ == "__main__":

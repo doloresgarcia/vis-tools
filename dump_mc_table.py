@@ -3,20 +3,20 @@ from podio import root_io
 from particle import Particle
 import sys
 
-def get_simulator_status_string(mc):
-    if mc is None:
-        return (
-            "simulator status bits: [sbvtcls] "
-            " s: created in simulation"
-            " b: backscatter"
-            " v: vertex is not endpoint of parent"
-            " t: decayed in tracker"
-            " c: decayed in calorimeter"
-            " l: has left detector"
-            " s: stopped"
-            " o: overlay\n"
-        )
+def get_sim_status_description():
+    return (
+        "simulator status bits: [sbvtcls] "
+        " s: created in simulation"
+        " b: backscatter"
+        " v: vertex is not endpoint of parent"
+        " t: decayed in tracker"
+        " c: decayed in calorimeter"
+        " l: has left detector"
+        " s: stopped"
+        " o: overlay\n"
+    )
 
+def get_sim_status(mc):
     status = list("[    0   ]")
 
     if mc.getSimulatorStatus() == 0:
@@ -38,27 +38,27 @@ def get_simulator_status_string(mc):
 
     return "".join(status)
 
-def mc_print(mc):
-    if mc == None:
-        header = (
-            f'{"index":^5}|'
-            f'{"PDG":^10}|'
-            f'{"name":^15}|'
-            f'{"px, py, pz (GeV)":^25}|'
-            f'{"px_ep, py_ep, pz_ep":^25}|'
-            f'{"energy":^7}|'
-            f'{"gen":^3}|'
-            f'{"[simstat ]":^10}|'
-            f'{"vertex x, y, z (mm)":^28}|'
-            f'{"endpoint x, y, z (mm)":^28}|'
-            f'{"mass":^7}|'
-            f'{"charge":^6}|'
-            f'{"[parents - daughters]"}'
-        )
-        print(get_simulator_status_string(None))
-        print(header)
-        return
+def mc_print_header():
+    header = (
+        f'{"index":^5}|'
+        f'{"PDG":^10}|'
+        f'{"name":^15}|'
+        f'{"px, py, pz (GeV)":^25}|'
+        f'{"px_ep, py_ep, pz_ep":^25}|'
+        f'{"energy":^7}|'
+        f'{"gen":^3}|'
+        f'{"[simstat ]":^10}|'
+        f'{"vertex x, y, z (mm)":^28}|'
+        f'{"endpoint x, y, z (mm)":^28}|'
+        f'{"mass":^7}|'
+        f'{"charge":^6}|'
+        f'{"[parents - daughters]"}'
+    )
+    print(get_sim_status_description())
+    print(header)
 
+
+def mc_print(mc):
     def mom_vec3(v):
         return f"{v[0]:^7.2f}, {v[1]:^7.2f}, {v[2]:^7.2f}"
 
@@ -80,18 +80,19 @@ def mc_print(mc):
         f"{mom_vec3(mc.getMomentumAtEndpoint())}|"
         f"{mc.getEnergy():^7.3f}|"
         f"{mc.getGeneratorStatus():^3d}|"
-        f"{get_simulator_status_string(mc)}|"
+        f"{get_sim_status(mc)}|"
         f"{pos_vec3(mc.getVertex())}|"
         f"{pos_vec3(mc.getEndpoint())}|"
         f"{mc.getMass():^7.3f}|"
         f"{mc.getCharge():^6.1f}|"
         f"[{parents}] - [{daughters}]"
     )
-
     print(mc_info)
 
+
+
 def print_all_mcs(event):
-    mc_print(None) # header
+    mc_print_header()
     for mc in event.get("MCParticles"):
         mc_print(mc)
 
