@@ -165,9 +165,9 @@ if __name__ == "__main__":
             DDMarlinCED.drawHelix(B_FIELD, charge, x, y, z, px, py, pz, 1, 5, int(color.lstrip("#"), 16), 0.0, r_max, z_max, id)
 
         hit_size = 5
-        for col in TRACKER_HIT_COLS:
+        for col in TRACKER_HIT_COLS + CALO_HIT_COLS:
             if col not in event.getAvailableCollections():
-                print(f"WARNING: Tracker hit collection {col} not found in event. Skipping.")
+                print(f"WARNING: hit collection {col} not found in event. Skipping.")
                 continue
             for hit in event.get(col):
                 if hit in hit2mc:
@@ -178,23 +178,6 @@ if __name__ == "__main__":
                     # print(f"WARNING: Found tracker hit with unassigned truth MC. Drawing with gray color. But this should never happen!")
                     color = "#808080"
                     id = 0
-                pos = hit.getPosition()
-                ced_hit_ID(pos.x, pos.y, pos.z, CED_HIT_POINT, 1, hit_size, int(color.lstrip("#"), 16), id)
-
-        for col in CALO_HIT_COLS:
-            if col not in event.getAvailableCollections():
-                print(f"WARNING: Calorimeter hit collection {col} not found in event. Skipping.")
-                continue
-            for hit in event.get(col):
-                if hit in hit2mc:
-                    mc = hit2mc[hit]
-                    color = mc2color[mc]
-                    id = mc2id[mc]
-                else: 
-                    # print(f"WARNING: Found hit with unassigned truth MC for method # {ced_layer_idx}. Drawing with gray color.")
-                    color = "#808080"
-                    id = 0
-
                 pos = hit.getPosition()
                 ced_hit_ID(pos.x, pos.y, pos.z, CED_HIT_POINT, 1, hit_size, int(color.lstrip("#"), 16), id)
 
