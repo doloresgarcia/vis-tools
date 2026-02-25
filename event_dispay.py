@@ -48,7 +48,10 @@ def load_detector_geometry(compact_path):
 def get_hit_mc_map(event, hit_rel_col):
     hit2mc = {}
     hit2weight = {}
-    
+    if hit_rel_col not in event.getAvailableCollections():
+        print(f"Warning: Hit relation collection {hit_rel_col} not found in event.")
+        return hit2mc
+
     for link in event.get(hit_rel_col):
         if not link.getFrom().isAvailable() or not link.getTo().isAvailable():
             continue
@@ -102,12 +105,10 @@ if __name__ == "__main__":
 
     elif "/CLD/" in compact_path:
         B_FIELD = 2.0
-        TRACKS_COL = "SiTracks"
+        TRACKS_COL = "SiTracks_Refitted"
         TRACK_TO_MC_LINK_COL = "SiTracksMCTruthLink"
-        # TRACKER_HIT_COLS = ["VXDTrackerHits", "VXDEndcapTrackerHits", "ITrackerHits", "OTrackerHits"]
-        # TRACKER_HIT_RELATION_COLS = ["VXDTrackerHitRelations", "VXDEndcapTrackerHitRelations"]
-        TRACKER_HIT_COLS = []
-        TRACKER_HIT_RELATION_COLS = []
+        TRACKER_HIT_COLS = ["VXDTrackerHits", "VXDEndcapTrackerHits", "ITrackerHits", "OTrackerHits"]
+        TRACKER_HIT_RELATION_COLS = ["VXDTrackerHitRelations", "VXDEndcapTrackerHitRelations"]
         CALO_HIT_COLS = ["ECALBarrel", "ECALEndcap", "HCALBarrel", "HCALEndcap", "HCALOther", "MUON"]
     else:
         raise ValueError(f"Unknown detector in compact_path: {compact_path}")
@@ -133,7 +134,7 @@ if __name__ == "__main__":
         for link in event.get(TRACK_TO_MC_LINK_COL):
             if not link.getFrom().isAvailable() or not link.getTo().isAvailable():
                 continue
-            track2mc[link.getFrom().id().index] = link.getTo()
+            track2mc[link.getFrom()] = link.getTo()
 
         hit2mc = {}
         for hit_rel_col in TRACKER_HIT_RELATION_COLS + [CALOHIT_TO_MC_LINK_COL]:
@@ -146,8 +147,8 @@ if __name__ == "__main__":
         mc2color, mc2id, id2mc = get_mcs_info(mcs)
 
         for track in event.get(TRACKS_COL):
-            if track.id().index in track2mc:
-                mc = track2mc[track.id().index]
+            if track in track2mc:
+                mc = track2mc[track]
                 color = mc2color[mc]
                 id = mc2id[mc]
             else: 
@@ -165,6 +166,9 @@ if __name__ == "__main__":
 
         hit_size = 5
         for col in TRACKER_HIT_COLS:
+            if col not in event.getAvailableCollections():
+                print(f"WARNING: Tracker hit collection {col} not found in event. Skipping.")
+                continue
             for hit in event.get(col):
                 if hit in hit2mc:
                     mc = hit2mc[hit]
@@ -178,6 +182,9 @@ if __name__ == "__main__":
                 ced_hit_ID(pos.x, pos.y, pos.z, CED_HIT_POINT, 1, hit_size, int(color.lstrip("#"), 16), id)
 
         for col in CALO_HIT_COLS:
+            if col not in event.getAvailableCollections():
+                print(f"WARNING: Calorimeter hit collection {col} not found in event. Skipping.")
+                continue
             for hit in event.get(col):
                 if hit in hit2mc:
                     mc = hit2mc[hit]
