@@ -155,11 +155,39 @@ if __name__ == "__main__":
         for hit_rel_col in TRACKER_HIT_RELATION_COLS + [CALOHIT_TO_MC_LINK_COL]:
             hit2mc.update(get_hit_mc_map(event, hit_rel_col))
 
+        # Always build MC color map — needed for both display modes
+        mcs = set()
+        mcs.update(track2mc.values())
+        mcs.update(hit2mc.values())
+        mcs = sorted(mcs, key=lambda mc: mc.getEnergy(), reverse=True)
+        mc2color, mc2id, id2mc = get_mcs_info(mcs)
+
         if use_pandora:
             pfos = list(event.get(PANDORA_PFO_COL))
-            obj2color = {pfo: color for pfo, color in zip(pfos, cycle(colors))}
             obj2id = {pfo: idx+1 for idx, pfo in enumerate(pfos)}
             id2obj = {idx+1: pfo for idx, pfo in enumerate(pfos)}
+
+            # Color each PFO by the MC particle with the most hits inside it;
+            # PFOs with no resolvable MC get a new unique color from the palette
+            unresolved_colors = cycle(colors)
+            obj2color = {}
+            for pfo in pfos:
+                hit_counts = {}
+                for cluster in pfo.getClusters():
+                    for hit in cluster.getHits():
+                        if hit in hit2mc:
+                            mc = hit2mc[hit]
+                            hit_counts[mc] = hit_counts.get(mc, 0) + 1
+                for track in pfo.getTracks():
+                    for tracker_hit in track.getTrackerHits():
+                        if tracker_hit in hit2mc:
+                            mc = hit2mc[tracker_hit]
+                            hit_counts[mc] = hit_counts.get(mc, 0) + 1
+                if hit_counts:
+                    dominant_mc = max(hit_counts, key=hit_counts.get)
+                    obj2color[pfo] = mc2color.get(dominant_mc, next(unresolved_colors))
+                else:
+                    obj2color[pfo] = next(unresolved_colors)
 
             track_assoc = {}
             for pfo in pfos:
@@ -178,11 +206,7 @@ if __name__ == "__main__":
                 if hit not in hit_assoc and mc in mc2track and mc2track[mc] in track_assoc:
                     hit_assoc[hit] = track_assoc[mc2track[mc]]
         else:
-            mcs = set()
-            mcs.update(track2mc.values())
-            mcs.update(hit2mc.values())
-            mcs = sorted(mcs, key=lambda mc: mc.getEnergy(), reverse=True)
-            obj2color, obj2id, id2obj = get_mcs_info(mcs)
+            obj2color, obj2id, id2obj = mc2color, mc2id, id2mc
             track_assoc = track2mc
             hit_assoc = hit2mc
 
