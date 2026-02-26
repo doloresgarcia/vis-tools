@@ -135,102 +135,109 @@ if __name__ == "__main__":
 
     reader = root_io.Reader(file)
     kb = KBHit()
-    for evt_idx, event in enumerate(reader.get("events")):
-        if evt_idx==71:
-            ced_new_event()
-            subdet_names = std.vector[std.string]()
-            for name_det_pair in detector.detectors():
-                name = str(name_det_pair.first)
-                if "Yoke" not in name.lower() and "Solenoid" not in name.lower():
-                    subdet_names.push_back(name)
-            DDMarlinCED.drawDD4hepDetector( detector, False, subdet_names )
 
-            track2mc = {}
-            for link in event.get(TRACK_TO_MC_LINK_COL):
-                if not link.getFrom().isAvailable() or not link.getTo().isAvailable():
-                    continue
-                track2mc[link.getFrom()] = link.getTo()
+    def draw_event(event, evt_idx, use_pandora):
+        ced_new_event()
+        subdet_names = std.vector[std.string]()
+        for name_det_pair in detector.detectors():
+            name = str(name_det_pair.first)
+            if "yoke" not in name.lower() and "solenoid" not in name.lower():
+                subdet_names.push_back(name)
+        DDMarlinCED.drawDD4hepDetector(detector, False, subdet_names)
 
-            hit2mc = {}
-            for hit_rel_col in TRACKER_HIT_RELATION_COLS + [CALOHIT_TO_MC_LINK_COL]:
-                hit2mc.update( get_hit_mc_map(event, hit_rel_col) )
+        track2mc = {}
+        for link in event.get(TRACK_TO_MC_LINK_COL):
+            if not link.getFrom().isAvailable() or not link.getTo().isAvailable():
+                continue
+            track2mc[link.getFrom()] = link.getTo()
 
-            if use_pandora_coloring:
-                pfos = list(event.get(PANDORA_PFO_COL))
-                obj2color = {pfo: color for pfo, color in zip(pfos, cycle(colors))}
-                obj2id = {pfo: idx+1 for idx, pfo in enumerate(pfos)}
-                id2obj = {idx+1: pfo for idx, pfo in enumerate(pfos)}
+        hit2mc = {}
+        for hit_rel_col in TRACKER_HIT_RELATION_COLS + [CALOHIT_TO_MC_LINK_COL]:
+            hit2mc.update(get_hit_mc_map(event, hit_rel_col))
 
-                track_assoc = {}
-                for pfo in pfos:
-                    for track in pfo.getTracks():
-                        track_assoc[track] = pfo
+        if use_pandora:
+            pfos = list(event.get(PANDORA_PFO_COL))
+            obj2color = {pfo: color for pfo, color in zip(pfos, cycle(colors))}
+            obj2id = {pfo: idx+1 for idx, pfo in enumerate(pfos)}
+            id2obj = {idx+1: pfo for idx, pfo in enumerate(pfos)}
 
-                calohit2pfo = {}
-                for pfo in pfos:
-                    for cluster in pfo.getClusters():
-                        for hit in cluster.getHits():
-                            calohit2pfo[hit] = pfo
+            track_assoc = {}
+            for pfo in pfos:
+                for track in pfo.getTracks():
+                    track_assoc[track] = pfo
 
-                mc2track = {mc: track for track, mc in track2mc.items()}
-                hit_assoc = dict(calohit2pfo)
-                for hit, mc in hit2mc.items():
-                    if hit not in hit_assoc and mc in mc2track and mc2track[mc] in track_assoc:
-                        hit_assoc[hit] = track_assoc[mc2track[mc]]
+            calohit2pfo = {}
+            for pfo in pfos:
+                for cluster in pfo.getClusters():
+                    for hit in cluster.getHits():
+                        calohit2pfo[hit] = pfo
+
+            mc2track = {mc: track for track, mc in track2mc.items()}
+            hit_assoc = dict(calohit2pfo)
+            for hit, mc in hit2mc.items():
+                if hit not in hit_assoc and mc in mc2track and mc2track[mc] in track_assoc:
+                    hit_assoc[hit] = track_assoc[mc2track[mc]]
+        else:
+            mcs = set()
+            mcs.update(track2mc.values())
+            mcs.update(hit2mc.values())
+            mcs = sorted(mcs, key=lambda mc: mc.getEnergy(), reverse=True)
+            obj2color, obj2id, id2obj = get_mcs_info(mcs)
+            track_assoc = track2mc
+            hit_assoc = hit2mc
+
+        for track in event.get(TRACKS_COL):
+            if track in track_assoc:
+                obj = track_assoc[track]
+                color = obj2color[obj]
+                id = obj2id[obj]
             else:
-                mcs = set()
-                mcs.update( track2mc.values() )
-                mcs.update( hit2mc.values() )
-                mcs = sorted(mcs, key=lambda mc: mc.getEnergy(), reverse=True)
-                obj2color, obj2id, id2obj = get_mcs_info(mcs)
-                track_assoc = track2mc
-                hit_assoc = hit2mc
+                color = "#808080"
+                id = 0
+            ts = [ts for ts in track.getTrackStates() if ts.location == edm4hep.TrackState.AtIP][0]
+            x, y, z = ts.referencePoint.x, ts.referencePoint.y, ts.referencePoint.z
+            px, py, pz = get_track_momentum(ts, B_FIELD)
+            charge = 1 if ts.omega > 0 else -1
+            DDMarlinCED.drawHelix(B_FIELD, charge, x, y, z, px, py, pz, 1, 5, int(color.lstrip("#"), 16), 0.0, 2000, 2350, id)
 
-            for track in event.get(TRACKS_COL):
-                if track in track_assoc:
-                    obj = track_assoc[track]
+        hit_size = 5
+        for col in TRACKER_HIT_COLS + CALO_HIT_COLS:
+            if col not in event.getAvailableCollections():
+                print(f"WARNING: hit collection {col} not found in event. Skipping.")
+                continue
+            for hit in event.get(col):
+                if hit in hit_assoc:
+                    obj = hit_assoc[hit]
                     color = obj2color[obj]
                     id = obj2id[obj]
                 else:
                     color = "#808080"
                     id = 0
+                pos = hit.getPosition()
+                ced_hit_ID(pos.x, pos.y, pos.z, CED_HIT_POINT, 1, hit_size, int(color.lstrip("#"), 16), id)
 
-                ts = [ts for ts in track.getTrackStates() if ts.location == edm4hep.TrackState.AtIP][0]
-                x, y, z = ts.referencePoint.x, ts.referencePoint.y, ts.referencePoint.z
-                px,py,pz = get_track_momentum(ts, B_FIELD)
-                charge = 1 if ts.omega > 0 else -1
-                r_max = 2000
-                z_max = 2350
-                DDMarlinCED.drawHelix(B_FIELD, charge, x, y, z, px, py, pz, 1, 5, int(color.lstrip("#"), 16), 0.0, r_max, z_max, id)
+        ced_send_event()
 
-            hit_size = 5
-            for col in TRACKER_HIT_COLS + CALO_HIT_COLS:
-                if col not in event.getAvailableCollections():
-                    print(f"WARNING: hit collection {col} not found in event. Skipping.")
-                    continue
-                for hit in event.get(col):
-                    if hit in hit_assoc:
-                        obj = hit_assoc[hit]
-                        color = obj2color[obj]
-                        id = obj2id[obj]
-                    else:
-                        color = "#808080"
-                        id = 0
-                    pos = hit.getPosition()
-                    ced_hit_ID(pos.x, pos.y, pos.z, CED_HIT_POINT, 1, hit_size, int(color.lstrip("#"), 16), id)
+        color_mode_label = "Pandora PFO" if use_pandora else "MC truth"
+        print_header = f'Event # {evt_idx} [{color_mode_label} coloring]. Enter - next. ESC - quit. "c" - toggle coloring. Double click - print info. "p" - print all MCs.'
+        print(f"{print_header:-^180}\n")
+        if not use_pandora:
+            mc_print_header()
 
-            ced_send_event()
+        return id2obj
 
-            color_mode_label = "Pandora PFO" if use_pandora_coloring else "MC truth"
-            print_header = f'Event # {evt_idx} [{color_mode_label} coloring]. Enter - next event. ESC - quit. Double click - print info. "p" - print all MCs.'
-            print(f"{print_header:-^180}\n")
-            if not use_pandora_coloring:
-                mc_print_header()
+    for evt_idx, event in enumerate(reader.get("events")):
+        if evt_idx==71:
+            id2obj = draw_event(event, evt_idx, use_pandora_coloring)
+
             while True:
                 if kb.kbhit():
                     c = kb.getch()
                     if ord(c) == 27 or ord(c) == 10: # ESC or Enter has been hit
                         break
+                    elif ord(c) == ord('c'):
+                        use_pandora_coloring = not use_pandora_coloring
+                        id2obj = draw_event(event, evt_idx, use_pandora_coloring)
                     elif ord(c) == ord('p'):
                         print_all_mcs(event)
 
@@ -241,7 +248,7 @@ if __name__ == "__main__":
                         print(f"Selected PFO #{selected_id}: E={pfo.getEnergy():.2f} GeV, PDG={pfo.getPDG()}, "
                               f"tracks={pfo.tracks_size()}, clusters={pfo.clusters_size()}")
                     else:
-                        mc_print( id2obj[selected_id] )
+                        mc_print(id2obj[selected_id])
                 elif selected_id >= 0 and selected_id not in id2obj:
                     print("Selected hit has no assigned object!")
             kb.set_normal_term()
