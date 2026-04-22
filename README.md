@@ -22,6 +22,9 @@ python3 ./dump_mc_tree.py /path/to/file.edm4hep.root evt_number
 ### Event Display
 
 ```bash
-glced &
+glced & 
 python3 ./event_display.py $K4GEO/path/to/detector/compact/file.xml /path/to/file.edm4hep.root
 ```
+
+
+
